@@ -1,0 +1,8 @@
+{
+  "name": "ovrix",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Ovrix website with Kaapo, the chat-to-edit reel editor",
+  "engines": { "node": ">=18" }
+}

@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://ovrix.vercel.app/sitemap.xml
