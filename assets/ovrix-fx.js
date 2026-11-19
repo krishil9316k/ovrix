@@ -3,6 +3,10 @@
 (() => {
   const root = document.documentElement;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // run intro animations only once the page is actually on screen (background tabs freeze animation)
+  const whenVisible = () => document.visibilityState === 'visible' ? Promise.resolve()
+    : new Promise(r => { const h = () => { if (document.visibilityState === 'visible') { document.removeEventListener('visibilitychange', h); r() } }; document.addEventListener('visibilitychange', h) });
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
   const fine = matchMedia('(pointer: fine)').matches;
 
   /* ---------- theme switch (dark / light) ---------- */
@@ -87,8 +91,11 @@
   /* ---------- counters ---------- */
   document.querySelectorAll('[data-count]').forEach(el => {
     const end = +el.dataset.count; if (reduce) { el.textContent = end; return }
-    let t0; const step = t => { t0 ??= t; const k = Math.min(1, (t - t0) / 900); el.textContent = Math.round(end * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step) };
-    setTimeout(() => requestAnimationFrame(step), 500);
+    whenVisible().then(() => sleep(500)).then(() => {
+      let t0; const step = t => { t0 ??= t; const k = Math.min(1, (t - t0) / 900); el.textContent = Math.round(end * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step) };
+      requestAnimationFrame(step);
+      setTimeout(() => { el.textContent = end }, 1200); // always lands on the real number
+    });
   });
 
   /* ---------- hero: Kaapo cuts the filler word ---------- */
@@ -97,21 +104,25 @@
     const ft = fill.querySelector('.ft'), ph = fill.querySelector('.ph');
     let busy = false;
     const reset = () => { fill.style.width = ''; fill.style.transition = 'none'; ft.style.clipPath = ''; ph.style.opacity = 0; ph.style.left = '0px'; note && note.classList.remove('on') };
+    const finish = () => { ft.style.clipPath = 'inset(0 0 0 100%)'; fill.style.width = '0px'; ph.style.opacity = 0; note && note.classList.add('on') };
     const cut = async () => {
       if (busy) return; busy = true; reset();
       if (reduce) { fill.style.width = '0px'; note && note.classList.add('on'); busy = false; return }
       const w = fill.getBoundingClientRect().width;
       fill.style.width = w + 'px'; void fill.offsetWidth;
-      await new Promise(r => setTimeout(r, 1400));
+      await sleep(1400); await whenVisible();
       ph.style.opacity = 1;
       const dur = 650, ease = 'cubic-bezier(.6,0,.3,1)';
       ph.animate([{ left: '0px' }, { left: (w - 3) + 'px' }], { duration: dur, easing: ease, fill: 'forwards' });
-      await ft.animate([{ clipPath: 'inset(0 0 0 0)' }, { clipPath: 'inset(0 0 0 100%)' }], { duration: dur, easing: ease, fill: 'forwards' }).finished;
+      const a = ft.animate([{ clipPath: 'inset(0 0 0 0)' }, { clipPath: 'inset(0 0 0 100%)' }], { duration: dur, easing: ease, fill: 'forwards' });
+      await Promise.race([a.finished, sleep(dur + 150)]);
+      ft.style.clipPath = 'inset(0 0 0 100%)';
       fill.style.transition = 'width .55s cubic-bezier(.7,0,.2,1)'; fill.style.width = '0px';
-      await new Promise(r => setTimeout(r, 300)); ph.style.opacity = 0;
+      await sleep(300); ph.style.opacity = 0;
       note && note.classList.add('on'); busy = false;
+      setTimeout(() => { if (!busy) finish() }, 900); // safety: never leave a gap in the headline
     };
-    (document.fonts ? document.fonts.ready : Promise.resolve()).then(cut);
+    (document.fonts ? document.fonts.ready : Promise.resolve()).then(whenVisible).then(cut);
     h1.addEventListener('click', () => { ft.getAnimations().forEach(a => a.cancel()); ph.getAnimations().forEach(a => a.cancel()); cut() });
   }
 })();
