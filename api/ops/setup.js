@@ -1,0 +1,26 @@
+// GET  /api/ops/setup  public: shows which pieces are configured (true/false only, never values)
+// POST /api/ops/setup  with the ops secret: registers /reply and /mark-paid and checks the Discord channels
+import { loadConfig, buildAgents, authorised } from '../../ops/runtime.js';
+
+export const CHANNELS = ['approvals', 'agent-logs', 'video-editing', 'ai-films', 'ai-ads', 'website-build', 'custom-bots',
+  'discord-bots', 'discord-servers', 'hosting', 'support', 'payments', 'security-alerts'];
+
+export default async function handler(req, res) {
+  const cfg = loadConfig();
+  const status = {
+    gemini: !!process.env.GEMINI_API_KEY, supabaseSecret: !!cfg.supabaseServiceKey, opsSecret: !!cfg.opsSecret,
+    discordBot: !!cfg.discordToken, discordGuild: !!cfg.guildId, discordPublicKey: !!cfg.discordPublicKey,
+    stripe: !!cfg.stripeWebhookSecret, razorpay: !!cfg.razorpayWebhookSecret,
+  };
+  if (req.method === 'GET') return res.status(200).json(status);
+  if (req.method !== 'POST') return res.status(405).end();
+  if (!authorised(req.headers['x-ops-secret'] || req.headers.authorization)) return res.status(401).json({ error: 'unauthorised' });
+  try {
+    const { discord } = buildAgents(cfg);
+    const appId = await discord.registerCommands();
+    const missing = await discord.missingChannels(CHANNELS);
+    res.status(200).json({ ...status, commandsRegistered: true, appId, missingChannels: missing });
+  } catch (e) {
+    res.status(500).json({ ...status, error: String(e.message || e).slice(0, 300) });
+  }
+}
