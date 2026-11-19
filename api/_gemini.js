@@ -1,5 +1,6 @@
 // Shared Gemini caller. The API key lives only on the server (Vercel env var GEMINI_API_KEY).
-const MODELS = (process.env.GEMINI_MODEL || 'gemini-2.5-flash,gemini-2.0-flash').split(',').map(s => s.trim()).filter(Boolean);
+// Tried in order; if one is busy (503), missing (404) or out of free quota (429), the next one is used.
+const MODELS = (process.env.GEMINI_MODEL || 'gemini-3.8-flash,gemini-flash-latest,gemini-3.5-flash,gemini-flash-lite-latest').split(',').map(s => s.trim()).filter(Boolean);
 
 export async function gemini(parts, { json = false, temperature = 0.3 } = {}) {
   const key = process.env.GEMINI_API_KEY;
@@ -19,8 +20,8 @@ export async function gemini(parts, { json = false, temperature = 0.3 } = {}) {
       return (j.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
     }
     last = Object.assign(new Error(`Gemini ${model} ${r.status}: ${(await r.text()).slice(0, 300)}`), { status: r.status });
-    // Model missing or overloaded: try the next one. Quota or bad key: stop.
-    if (![404, 500, 503].includes(r.status)) break;
+    // Model missing, overloaded or out of quota: try the next one. Bad key or bad request: stop.
+    if (![404, 429, 500, 503].includes(r.status)) break;
   }
   throw last;
 }
