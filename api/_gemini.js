@@ -6,7 +6,7 @@ const MODELS = (process.env.GEMINI_MODEL || 'gemini-flash-lite-latest,gemini-3.5
 const BUDGET_MS = 52000;   // stay under Vercel's 60 s function limit
 const PER_MODEL_MS = 22000;
 
-export async function gemini(parts, { json = false, temperature = 0.3 } = {}) {
+export async function gemini(parts, { json = false, temperature = 0.3, system = '', maxTokens = 0 } = {}) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw Object.assign(new Error('GEMINI_API_KEY is not set'), { status: 503 });
   const t0 = Date.now();
@@ -21,8 +21,9 @@ export async function gemini(parts, { json = false, temperature = 0.3 } = {}) {
         method: 'POST', signal: ac.signal,
         headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
         body: JSON.stringify({
+          ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
           contents: [{ role: 'user', parts }],
-          generationConfig: { temperature, ...(json ? { responseMimeType: 'application/json' } : {}) }
+          generationConfig: { temperature, ...(maxTokens ? { maxOutputTokens: maxTokens } : {}), ...(json ? { responseMimeType: 'application/json' } : {}) }
         })
       });
       if (r.ok) {
