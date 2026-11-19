@@ -23,4 +23,4 @@ One project, one deploy, clean addresses:
 
 - **Payment links:** in `index.html`, search `PAYMENT_LINKS` and paste your Stripe or Razorpay links. Empty = the button scrolls to the contact form.
 - **Contact email:** search `krishilraj20@gmail.com` (in `index.html`, `kaapo/index.html`, `privacy.html`, `terms.html`).
-- **Legal pages:** these are starter templates, not legal advice. "Virtual Creatives Pvt. Ltd." should only stay if the company is registered under that name.
+- **Legal pages:** these are starter templates, not legal advice. They name "Ovrix" as the operator. Add the registered legal name (e.g. "Ovrix … Pvt. Ltd.") only after the company is actually registered.
