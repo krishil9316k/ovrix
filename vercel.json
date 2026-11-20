@@ -1,6 +1,10 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
+  "redirects": [
+    { "source": "/ops/:path*", "destination": "/", "permanent": false },
+    { "source": "/supabase-leads.sql", "destination": "/", "permanent": false }
+  ],
   "functions": {
     "api/*.js": { "maxDuration": 60 },
     "api/ops/*.js": { "maxDuration": 60 }
