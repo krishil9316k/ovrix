@@ -1,7 +1,7 @@
 // POST /api/ops/watchdog          every 30 min from the database scheduler: site, secrets, RLS, Kaapo, stuck orders
 // POST /api/ops/watchdog?digest=1 once a day at 9 AM IST: daily digest in #agent-logs
 // Alert memory is kept in the ops_state table, so alerts fire only when something changes.
-import { buildAgents, authorised } from '../../ops/runtime.js';
+import { buildAgents, authorised, safeError } from '../../ops/runtime.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
@@ -15,6 +15,6 @@ export default async function handler(req, res) {
     await db.setState('watchdog', Object.fromEntries(watchdog._state));
     res.status(200).json({ ok: true, open: [...watchdog._state.values()].filter((v) => v.severity !== 'ok').length });
   } catch (e) {
-    res.status(e.status || 500).json({ error: String(e.message || e).slice(0, 300) });
+    res.status(e.status || 500).json({ error: safeError(e) });
   }
 }
