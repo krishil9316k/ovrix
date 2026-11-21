@@ -9,28 +9,40 @@ import { createSupport } from './agents/support.js';
 import { createWatchdog } from './agents/watchdog.js';
 
 const opt = (k, d = '') => process.env[k] || d;
+// Secrets never contain spaces or line breaks, so strip any that sneak in when a key is copied and pasted.
+const secret = (k) => String(process.env[k] || '').replace(/\s+/g, '');
+
+/** Error text that is safe to return or log: anything that looks like a key or token is masked. */
+export function safeError(e) {
+  return String(e?.message || e || 'error')
+    .replace(/sb_(secret|publishable)_[\w-]+(\s+[\w-]+)?/g, 'sb_$1_[hidden]')
+    .replace(/eyJ[\w-]+\.[\w-]+\.[\w-]+/g, '[jwt hidden]')
+    .replace(/[\w-]{20,}\.[\w-]{5,}\.[\w-]{20,}/g, '[token hidden]')
+    .replace(/\b[A-Za-z0-9_-]{40,}\b/g, '[hidden]')
+    .slice(0, 300);
+}
 
 export function loadConfig() {
   return {
     supabaseUrl: opt('SUPABASE_URL', 'https://yskrynljncjlonuzasux.supabase.co'),
-    supabaseServiceKey: opt('SUPABASE_SERVICE_KEY'),
+    supabaseServiceKey: secret('SUPABASE_SERVICE_KEY'),
     supabasePublishableKey: opt('SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_nLhyJLvGOmyHnruPUhk_Iw_sSzJqRdB'),
     leadsTable: opt('LEADS_TABLE', 'leads'),
-    discordToken: opt('DISCORD_BOT_TOKEN'),
-    guildId: opt('DISCORD_GUILD_ID'),
-    discordPublicKey: opt('DISCORD_PUBLIC_KEY'),
+    discordToken: secret('DISCORD_BOT_TOKEN'),
+    guildId: secret('DISCORD_GUILD_ID'),
+    discordPublicKey: secret('DISCORD_PUBLIC_KEY'),
     approverRole: opt('DISCORD_APPROVER_ROLE', 'Approver'),
     approverIds: opt('DISCORD_APPROVER_IDS').split(',').map((s) => s.trim()).filter(Boolean),
     maxOrdersPerCycle: Number(opt('MAX_ORDERS_PER_CYCLE', '3')),
     maxTokens: Number(opt('MAX_TOKENS', '1800')),
-    stripeWebhookSecret: opt('STRIPE_WEBHOOK_SECRET'),
-    razorpayWebhookSecret: opt('RAZORPAY_WEBHOOK_SECRET'),
+    stripeWebhookSecret: secret('STRIPE_WEBHOOK_SECRET'),
+    razorpayWebhookSecret: secret('RAZORPAY_WEBHOOK_SECRET'),
     siteUrl: opt('SITE_URL', 'https://ovrix-kappo.vercel.app'),
     legalPaths: ['privacy', 'terms'],
     checkMinutes: 0,
     digestHour: 9,
     timezone: 'Asia/Kolkata',
-    opsSecret: opt('OPS_SECRET'),
+    opsSecret: secret('OPS_SECRET'),
   };
 }
 
