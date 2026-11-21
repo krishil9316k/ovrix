@@ -5,6 +5,17 @@
 import crypto from 'node:crypto';
 
 const API = 'https://discord.com/api/v10';
+
+/** Every channel the agents post in. The bot creates any that are missing. */
+export const REQUIRED_CHANNELS = ['approvals', 'agent-logs', 'video-editing', 'ai-films', 'ai-ads', 'website-build', 'custom-bots',
+  'discord-bots', 'discord-servers', 'hosting', 'support', 'payments', 'security-alerts'];
+const TOPICS = {
+  approvals: 'New briefs with the Manager\'s plan. Approve or reject here.',
+  'agent-logs': 'What the agents did, step by step.',
+  support: 'Reply drafts for clients. Send with /reply.',
+  payments: 'Verified payments. Confirm with the buttons or /mark-paid.',
+  'security-alerts': 'Watchdog alerts and the daily digest.',
+};
 const clip = (s, n) => {
   const t = String(s ?? '');
   return t.length > n ? t.slice(0, n - 1) + '…' : t || '—';
@@ -172,6 +183,37 @@ export function makeDiscord(cfg, fetchImpl = fetch) {
       const app = await api('/applications/@me');
       await api(`/applications/${app.id}/guilds/${cfg.guildId}/commands`, 'PUT', COMMANDS);
       return app.id;
+    },
+
+    /**
+     * One-time server setup, safe to repeat: registers the slash commands, creates the Approver role
+     * and gives it to the server owner, and creates any missing channels under an "Ovrix Agents" category.
+     */
+    async ensureSetup(names = REQUIRED_CHANNELS) {
+      const g = cfg.guildId;
+      const appId = await this.registerCommands();
+      const roleName = cfg.approverRole || 'Approver';
+      roles = await api(`/guilds/${g}/roles`);
+      let role = roles.find((r) => r.name === roleName);
+      const roleCreated = !role;
+      if (!role) role = await api(`/guilds/${g}/roles`, 'POST', { name: roleName, permissions: '0', hoist: false, mentionable: false });
+      guild = await api(`/guilds/${g}`);
+      let ownerHasRole = true;
+      try { await api(`/guilds/${g}/members/${guild.owner_id}/roles/${role.id}`, 'PUT'); } catch { ownerHasRole = false; }
+      channels = await api(`/guilds/${g}/channels`);
+      const text = (n) => channels.find((c) => c.name === n && (c.type === 0 || c.type === 5));
+      const created = [];
+      const missing = names.filter((n) => !text(n));
+      if (missing.length) {
+        let cat = channels.find((c) => c.type === 4 && c.name.toLowerCase() === 'ovrix agents');
+        if (!cat) cat = await api(`/guilds/${g}/channels`, 'POST', { name: 'Ovrix Agents', type: 4 });
+        for (const n of missing) {
+          await api(`/guilds/${g}/channels`, 'POST', { name: n, type: 0, parent_id: cat.id, ...(TOPICS[n] ? { topic: TOPICS[n] } : {}) });
+          created.push(n);
+        }
+      }
+      channels = null; roles = null;
+      return { appId, created, roleCreated, ownerHasRole };
     },
 
     /** Which of the required channels exist (for the setup check). */
