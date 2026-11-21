@@ -43,7 +43,7 @@ You don't create channels or roles by hand. On its first run the bot:
 Redeploy. `https://ovrix-kappo.vercel.app/api/ops/setup` should show `true` for each one.
 Then, in the Developer Portal, set **Interactions Endpoint URL** to `https://ovrix-kappo.vercel.app/api/ops/discord`
 (Discord checks it immediately, so DISCORD_PUBLIC_KEY must be live first).
-Within 5 minutes the scheduled run does the server setup above. To rerun it at any time:
+Within a minute the scheduled run does the server setup above. To rerun it at any time:
 `curl -X POST https://ovrix-kappo.vercel.app/api/ops/setup -H "x-ops-secret: <OPS_SECRET>"`
 
 ## Tests
