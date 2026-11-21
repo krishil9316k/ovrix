@@ -1,9 +1,9 @@
 // GET  /api/ops/setup  public: shows which pieces are configured (true/false only, never values)
-// POST /api/ops/setup  with the ops secret: registers /reply and /mark-paid and checks the Discord channels
+// POST /api/ops/setup  with the ops secret: runs the Discord setup again (commands, role, channels)
 import { loadConfig, buildAgents, authorised } from '../../ops/runtime.js';
 
-export const CHANNELS = ['approvals', 'agent-logs', 'video-editing', 'ai-films', 'ai-ads', 'website-build', 'custom-bots',
-  'discord-bots', 'discord-servers', 'hosting', 'support', 'payments', 'security-alerts'];
+import { REQUIRED_CHANNELS as CHANNELS } from '../../ops/lib/discord.js';
+export { CHANNELS };
 
 export default async function handler(req, res) {
   const cfg = loadConfig();
@@ -17,9 +17,9 @@ export default async function handler(req, res) {
   if (!authorised(req.headers['x-ops-secret'] || req.headers.authorization)) return res.status(401).json({ error: 'unauthorised' });
   try {
     const { discord } = buildAgents(cfg);
-    const appId = await discord.registerCommands();
+    const setup = await discord.ensureSetup(CHANNELS);
     const missing = await discord.missingChannels(CHANNELS);
-    res.status(200).json({ ...status, commandsRegistered: true, appId, missingChannels: missing });
+    res.status(200).json({ ...status, commandsRegistered: true, ...setup, missingChannels: missing });
   } catch (e) {
     res.status(500).json({ ...status, error: String(e.message || e).slice(0, 300) });
   }
