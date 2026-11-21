@@ -2,7 +2,7 @@
 -- Ovrix service agents on Vercel: database wiring. Run AFTER ops/schema.sql, in the "ovrix" project.
 -- Safe to re-run.
 --   * a new brief in `leads` immediately calls /api/ops/tick (Manager agent)
---   * every 5 min: catch-up tick; every 30 min: watchdog checks; 9:00 AM IST: daily digest
+--   * every minute: catch-up tick; every 30 min: watchdog checks; 9:00 AM IST: daily digest
 --   * calls carry a random secret that only the database and Vercel know
 -- =====================================================================
 create extension if not exists pg_net;
@@ -53,6 +53,6 @@ create trigger ops_new_lead after insert on public.leads for each statement exec
 
 -- ---- schedules (UTC): 9:00 AM IST = 03:30 UTC ----
 select cron.unschedule(jobid) from cron.job where jobname in ('ovrix-tick', 'ovrix-watchdog', 'ovrix-digest');
-select cron.schedule('ovrix-tick',     '*/5 * * * *',  $$ select public.ops_call('tick') $$);
+select cron.schedule('ovrix-tick',     '* * * * *',    $$ select public.ops_call('tick') $$);
 select cron.schedule('ovrix-watchdog', '*/30 * * * *', $$ select public.ops_call('watchdog') $$);
 select cron.schedule('ovrix-digest',   '30 3 * * *',   $$ select public.ops_call('watchdog?digest=1') $$);
