@@ -30,6 +30,8 @@ function fakeDiscordApi() {
     const body = init.body ? JSON.parse(init.body) : undefined;
     calls.push({ path, method: init.method || 'GET', body, auth: init.headers?.Authorization });
     const json = (o) => new Response(JSON.stringify(o), { status: 200 });
+    if (path === '/guilds/G/channels' && init.method === 'POST') return json({ id: 'new' + calls.length, ...body });
+    if (path === '/guilds/G/roles' && init.method === 'POST') return json({ id: 'RNEW', ...body });
     if (path === '/guilds/G/channels') return json([{ id: 'c-appr', name: 'approvals', type: 0 }, { id: 'c-log', name: 'agent-logs', type: 0 }, { id: 'c-pay', name: 'payments', type: 0 }, { id: 'c-voice', name: 'support', type: 2 }]);
     if (path === '/guilds/G') return json({ id: 'G', owner_id: 'OWNER' });
     if (path === '/guilds/G/roles') return json([{ id: 'R1', name: 'Approver' }, { id: 'R2', name: 'Member' }]);
@@ -157,6 +159,30 @@ const cfg = { discordToken: 'TOKEN', guildId: 'G', approverRole: 'Approver', app
   ok('/reply passes the pasted client message to Support');
 
   assert.equal(COMMANDS.length, 2);
+}
+
+
+// ---------- 2b. Self-setup ----------
+{
+  const f = fakeDiscordApi();
+  const d = makeDiscord({ ...cfg, approverRole: 'Approver' }, f.fetchImpl);
+  const r = await d.ensureSetup();
+  assert.equal(r.appId, 'APP');
+  assert.ok(f.calls.some((c) => c.method === 'PUT' && c.path === '/applications/APP/guilds/G/commands'), 'commands registered');
+  assert.ok(!f.calls.some((c) => c.method === 'POST' && c.path === '/guilds/G/roles'), 'existing Approver role reused');
+  assert.ok(f.calls.some((c) => c.method === 'PUT' && c.path === '/guilds/G/members/OWNER/roles/R1'), 'owner gets Approver');
+  assert.ok(r.created.includes('support'), 'a voice channel named support does not count; text channel created');
+  assert.ok(!r.created.includes('approvals') && !r.created.includes('agent-logs'), 'existing channels kept');
+  assert.equal(r.created.length, 10);
+  const made = f.calls.filter((c) => c.method === 'POST' && c.path === '/guilds/G/channels');
+  assert.equal(made[0].body.type, 4, 'category created first');
+  assert.ok(made.slice(1).every((c) => c.body.type === 0 && c.body.parent_id !== undefined), 'text channels inside the category');
+  const f2 = fakeDiscordApi();
+  const d2 = makeDiscord({ ...cfg, approverRole: 'Boss' }, f2.fetchImpl);
+  const r2 = await d2.ensureSetup(['approvals']);
+  assert.equal(r2.roleCreated, true);
+  assert.deepEqual(r2.created, []);
+  ok('ensureSetup: commands, role to owner, only missing channels created');
 }
 
 // ---------- 5. Routes (no keys set) ----------
