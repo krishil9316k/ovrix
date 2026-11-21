@@ -33,7 +33,7 @@ Every brief from the contact form goes through a small team of AI agents. A pers
 
 ```
 Brief form ──► Supabase (insert-only from the web)
-                  │  pg_cron every 5 min
+                  │  pg_cron every minute
                   ▼
             Ovrix Manager ──► 1 of 8 specialists ──► plan in Discord #approvals
                                                     │
