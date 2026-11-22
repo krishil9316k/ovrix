@@ -4,9 +4,9 @@
 export const PRICE_LIST = `Published starting prices (USD): Video Editing from $80/video; AI Films from $600/film; AI Ad Films from $350/spot;
 Website Build from $450/site; Custom Bots from $200/bot; Discord Bots from $120/bot; Discord Servers from $250/server;
 Hosting & Maintenance from $25/month. These starting prices are published on the website; the real quote for a project is set by a human.
-Monthly plans: Starter $25/mo (1 site or bot, hosting + SSL, nightly backups, security patches, email support within 48h);
-Growth $75/mo (up to 3 projects, backups, uptime monitoring, priority patches, 2 hours of small edits a month, same-day chat support);
-Studio (custom price: unlimited hosted projects, a dedicated production lead, priority on new work, monthly performance and security report).
+Monthly plans: Starter $25/mo (1 site or bot, hosting + SSL, daily backups of client data, monthly security updates, email support within 48h);
+Growth $75/mo (up to 3 projects, daily backups, uptime checks every 30 minutes, priority security updates, 2 hours of small edits a month, support within 24h);
+Studio (custom price: up to 10 hosted projects, direct line to the founder, priority on new work, monthly performance and security report).
 Project work is 50% upfront, 50% on delivery, 2 revision rounds included. Per the Terms, copyright in a deliverable stays with Ovrix until final payment is received.`;
 
 export const COMPANY_NAME = 'Ovrix (founded by Krishil)';
@@ -70,8 +70,11 @@ export const SPECIALISTS = {
   hosting: {
     label: 'Hosting & Maintenance',
     room: 'hosting',
-    focus: `You plan hosting and maintenance. Produce: 1) recommended plan (Starter / Growth / Studio, using the plan contents above) and why, 2) setup checklist (domain, DNS, SSL),
-3) backup and monitoring plan, 4) security patching routine, 5) what is included vs billable, 6) TO CONFIRM items.`,
+    focus: `You plan hosting and maintenance. We only host what we build, on managed platforms, with the domain and accounts in the client's name:
+static and Next.js sites on Vercel or Cloudflare Pages; WordPress on a Hostinger Business/Cloud plan; Discord and custom bots on Railway or one small VPS; data on Supabase.
+Never plan hosting on a home PC. Produce: 1) recommended plan (Starter / Growth / Studio, using the plan contents above) and why,
+2) where each part runs and the monthly platform cost (mark estimates TO CONFIRM), 3) setup checklist (accounts in the client's name, domain, DNS, SSL, admin access for us),
+4) backups (code on GitHub, daily database backup) and uptime checks, 5) monthly routine (updates, renewals, report), 6) what is included vs billable, 7) TO CONFIRM items.`,
   },
 };
 

@@ -233,9 +233,32 @@ export function createWatchdog({ cfg, db, discord, fetchImpl: rawFetch = fetch, 
   }
 
   /** Run every check once. One failing check never stops the others. */
+  /** Hosting clients' sites (CLIENT_SITES): up or down, and SSL certificate expiry. */
+  async function checkClientSites() {
+    for (const raw of cfg.clientSites || []) {
+      let u;
+      try { u = new URL(raw); } catch { continue; }
+      const key = `client:${u.host}`;
+      try {
+        const res = await fetchImpl(u.toString(), { redirect: 'follow' });
+        if (res.status >= 500 || res.status === 404) await report(`${key}:down`, 'critical', `Client site ${u.host} returned HTTP ${res.status}.`);
+        else await report(`${key}:down`, 'ok', `Client site ${u.host} is back up.`);
+      } catch (err) {
+        await report(`${key}:down`, 'critical', `Client site ${u.host} is unreachable: ${err?.message || err}`);
+        continue;
+      }
+      if (u.protocol === 'https:') {
+        const days = await tlsImpl(u.hostname).catch(() => null);
+        if (days !== null && days < 14) await report(`${key}:tls`, 'warn', `SSL certificate for ${u.host} expires in ${days} day(s).`);
+        else if (days !== null) await report(`${key}:tls`, 'ok', `SSL certificate for ${u.host} renewed.`);
+      }
+    }
+  }
+
   async function runChecks() {
     const steps = [];
     if (cfg.siteUrl) steps.push(['site', checkSite]);
+    if ((cfg.clientSites || []).length) steps.push(['client-sites', checkClientSites]);
     steps.push(['rls', checkRls], ['orders', checkOrders]);
     for (const [name, fn] of steps) {
       try {
