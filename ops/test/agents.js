@@ -161,4 +161,18 @@ const wd3 = createWatchdog({ cfg: { siteUrl: '', supabaseUrl: 'https://p', supab
 await wd3.tick(); await wd3.tick();
 assert.equal(dposts.filter(([, x]) => x.includes('Daily digest')).length, 1, 'digest once per day');
 
+// Client sites: down alert once, recovery, SSL expiry warning
+{
+  const cposts = [];
+  let clientUp = true;
+  const cfetch = async (url) => (url.startsWith('https://client.example.in') ? (clientUp ? { status: 200, text: async () => '' } : { status: 502, text: async () => '' }) : wfetch(url));
+  const wd4 = createWatchdog({ cfg: { siteUrl: '', clientSites: ['https://client.example.in', 'not a url'], supabaseUrl: 'https://p', supabasePublishableKey: '', checkMinutes: 30, digestHour: 9, timezone: 'UTC' }, db: wdb, discord: { async postTo(r, x) { cposts.push([r, x]); } }, fetchImpl: cfetch, tlsImpl: async () => 5, now: () => t });
+  await wd4.runChecks();
+  assert.ok(cposts.some(([, x]) => x.includes('client.example.in expires in 5')), 'client SSL expiry warned');
+  clientUp = false; await wd4.runChecks();
+  assert.equal(cposts.filter(([, x]) => x.includes('Client site client.example.in returned HTTP 502')).length, 1, 'client outage alerts once');
+  clientUp = true; await wd4.runChecks();
+  assert.ok(cposts.some(([, x]) => x.includes('Recovered') && x.includes('client.example.in')), 'client recovery announced');
+}
+
 console.log('✅ All agent checks passed (webhooks, billing, support, watchdog)');
