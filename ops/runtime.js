@@ -38,6 +38,8 @@ export function loadConfig() {
     stripeWebhookSecret: secret('STRIPE_WEBHOOK_SECRET'),
     razorpayWebhookSecret: secret('RAZORPAY_WEBHOOK_SECRET'),
     siteUrl: opt('SITE_URL', 'https://ovrix-kappo.vercel.app'),
+    // Hosting clients' sites for the Watchdog, comma-separated: https://a.com,https://b.in
+    clientSites: opt('CLIENT_SITES').split(',').map((s) => s.trim()).filter(Boolean),
     legalPaths: ['privacy', 'terms'],
     checkMinutes: 0,
     digestHour: 9,
