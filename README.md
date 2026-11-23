@@ -2,7 +2,7 @@
 
 **An independent AI studio from India.** Ovrix builds AI products and does studio work for businesses: websites, bots and AI video.
 
-**Live:** [ovrix-kappo.vercel.app](https://ovrix-kappo.vercel.app) · **Product:** [Kaapo](https://ovrix-kappo.vercel.app/kaapo) · **Built by** Krishil
+**Live:** [ovrix.in](https://www.ovrix.in) · **Product:** [Kaapo](https://www.ovrix.in/kaapo) · **Built by** Krishil
 
 ---
 
