@@ -248,7 +248,7 @@ input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;bac
 {
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const cv=$('#cv'),cx=cv.getContext('2d'),tl=$('#tl'),log=$('#log');
-const SIZES={'9:16':[720,1280],'4:5':[864,1080],'1:1':[960,960],'16:9':[1280,720]};
+const SIZES={'9:16':[1080,1920],'4:5':[1080,1350],'1:1':[1080,1080],'16:9':[1920,1080]};
 const GRADE={none:'none',warm:'saturate(1.15) sepia(.18) contrast(1.05)',punchy:'contrast(1.18) saturate(1.4)',cinema:'contrast(1.12) saturate(.82) brightness(.95)',bw:'grayscale(1) contrast(1.18)'};
 const LANG={gu:'ગુજરાતી',hi:'हिंदी',hinglish:'Hinglish',en:'English'};
 const HOSTED=!(window.claude&&window.claude.use);let TRANSCRIBE=false;
@@ -326,10 +326,12 @@ async function videoFrames(m,n=3){const v=document.createElement('video');v.mute
 
 /* ---------- the edit engine: every change is an op ---------- */
 const OPS={
-  cutSilence(o){const before=total(),n0=plan.clips.length,nc=[];
+  cutSilence(o){const before=total(),n0=plan.clips.length,nc=[],odd=new Set(),old=plan.clips;
     for(const c of plan.clips){const m=M(c.m);if(c.type!=='video'||!m.env){nc.push(c);continue}
+      if(m.hi-m.lo<26)odd.add(m.name);
       for(const g of speech(m,o.strength||'normal')){const a=Math.max(c.in,g[0]),b=Math.min(c.out,g[1]);if(b-a>.15)nc.push({...c,in:a,out:b})}}
-    plan.clips=nc;const cut=Math.max(0,nc.length-n0);return cut||before-total()>.05?`Cut ${cut} pause${cut===1?'':'s'}, saved ${fmt(before-total())}`:'No long pauses found'},
+    plan.clips=nc;const lost=before-total();
+    if(!o.force&&lost>.05&&(odd.size||lost>before*.45)){plan.clips=old;return `${odd.size?[...odd].join(', ')+' sounds like music or footage without much talking':'That would cut '+fmt(lost)+' of '+fmt(before)}, so cutting “pauses” could chop the good parts. Say “cut pauses anyway” to do it.`}const cut=Math.max(0,nc.length-n0);return cut||before-total()>.05?`Cut ${cut} pause${cut===1?'':'s'}, saved ${fmt(before-total())}`:'No long pauses found'},
   restore(){const nc=[],seen=new Set();for(const c of plan.clips){if(c.type!=='video'){nc.push(c);continue}if(seen.has(c.m))continue;seen.add(c.m);nc.push({type:'video',m:c.m,in:0,out:M(c.m).dur})}plan.clips=nc;return 'Full clips restored'},
   aspect(o){if(!SIZES[o.value])return;plan.aspect=o.value;return 'Format '+o.value},
   fit(o){if(!['blur','fill','fit'].includes(o.value))return;plan.fit=o.value;return {blur:'Blurred background',fill:'Fill & crop',fit:'Fit with bars'}[o.value]},
@@ -388,7 +390,8 @@ function slice(a,b,keep){const L=lens(),k=plan.speed,nc=[];let s=0;
   plan.clips.forEach((c,i)=>{const e=s+L[i];const parts=keep?[[Math.max(a,s),Math.min(b,e)]]:[[s,Math.min(a,e)],[Math.max(b,s),e]];
     for(const[x,y]of parts){if(y-x<.05)continue;nc.push(c.type==='image'?{...c,dur:y-x}:{...c,in:c.in+(x-s)*k,out:c.in+(y-s)*k})}s=e});plan.clips=nc}
 function snap(){hist.push(JSON.stringify(plan));if(hist.length>80)hist.shift();fut=[]}
-async function runOps(ops){const labels=[];if(!ops||!ops.length)return labels;snap();
+async function mediaReady(){if(media.every(m=>m.kind!=='video'||m.ready))return;const w=say('ai','Still listening to your video… I\'ll do it in a moment.');await new Promise(r=>{const t=setInterval(()=>{if(media.every(m=>m.kind!=='video'||m.ready)){clearInterval(t);r()}},150)});w.remove()}
+async function runOps(ops){const labels=[];if(!ops||!ops.length)return labels;await mediaReady();snap();
   for(const o of ops){const f=OPS[o&&o.op];if(!f)continue;try{const l=await f(o);if(Array.isArray(l))labels.push(...l.filter(Boolean));else if(l)labels.push(l)}catch(e){labels.push('Could not do '+o.op)}}
   after();return labels}
 
@@ -398,7 +401,7 @@ function local(t){const s=t.toLowerCase(),ops=[];
   if(/hook|best moment|best part/.test(s)&&!/["“'‘]/.test(t))ops.push({op:'findHook',first:/start with|move|first/.test(s)});
   if(/no zoom|zoom off|without zoom/.test(s))ops.push({op:'zoom',value:'off'});else if(/zoom/.test(s))ops.push({op:'zoom',value:/push|slow/.test(s)?'push':/jump/.test(s)?'jump':'dynamic'});
   if(/progress ?bar/.test(s))ops.push({op:'bar',value:!/no |remove|off/.test(s)});
-  if(/silen|pause|gap|dead air|boring/.test(s))ops.push({op:'cutSilence',strength:/tight|jump|fast|aggress/.test(s)?'tight':/light|gentle|natural/.test(s)?'light':'normal'});
+  if(/silen|pause|gap|dead air|boring/.test(s))ops.push({op:'cutSilence',strength:/tight|jump|fast|aggress/.test(s)?'tight':/light|gentle|natural/.test(s)?'light':'normal',force:/anyway|force|still|just do/.test(s)});
   if(/restore|start over|undo all cut/.test(s))ops.push({op:'restore'});
   if(/9\s*[:x/]\s*16|vertical|reel|shorts?\b|tiktok|portrait/.test(s))ops.push({op:'aspect',value:'9:16'});
   else if(/4\s*[:x/]\s*5/.test(s))ops.push({op:'aspect',value:'4:5'});
@@ -427,7 +430,7 @@ function local(t){const s=t.toLowerCase(),ops=[];
 const SPEC=`You plan edits for Kaapo, a chat-to-edit reel editor. Reply ONLY with JSON {"reply":string,"ops":[...]}.
 "reply": 1-2 short friendly sentences in the user's language and script saying what you did, or one question if the request is unclear.
 Ops (only these):
-{"op":"cutSilence","strength":"light|normal|tight"} remove pauses / dead air
+{"op":"cutSilence","strength":"light|normal|tight","force":false} remove pauses / dead air (force true only if the user insists after a warning)
 {"op":"restore"} bring all cut parts back
 {"op":"aspect","value":"9:16|4:5|1:1|16:9"}
 {"op":"fit","value":"blur|fill|fit"} blur = blurred background behind the video
@@ -473,7 +476,7 @@ async function send(text){text=(text||'').trim();if(!text||busy)return;busy=true
   if(!res||!Array.isArray(res.ops))res=local(text);
   const busyMsg=res.ops.some(o=>['translate','smartCrop','findHook','autoEdit','autoCaptions'].includes(o.op))?say('ai','Working on it…'):null;
   const labels=await runOps(res.ops);if(busyMsg)busyMsg.remove();
-  say('ai',res.reply||(labels.length?'Done. Press play to watch it.':'Nothing changed.'),labels);
+  say('ai',res.reply||(labels.length?(labels.some(l=>/anyway”/.test(l))?'Heads up, I haven\'t cut anything yet.':'Done. Press play to watch it.'):'Nothing changed.'),labels);
   busy=false;$('#send').disabled=false}
 
 /* ---------- import ---------- */
@@ -586,7 +589,7 @@ async function doExport(){if(!plan.clips.length||exporting)return;pause();audio(
   if(!mime||!cv.captureStream){modal(`<h3>Export isn't supported here</h3><p class="note">Open Kaapo in Chrome or Edge on a computer or Android phone.</p><button class="btn" data-close>Close</button>`);return}
   modal(`<h3>Rendering your reel</h3><p class="note">Plays once in real time (${fmt(total())}). Keep this tab open.</p><div class="bar"><i id="xbar"></i></div><button class="btn" id="xcancel">Cancel</button>`);
   const stream=cv.captureStream(30);if(recDest)recDest.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
-  const rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:7e6,audioBitsPerSecond:160000}),chunks=[];rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+  const rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:12e6,audioBitsPerSecond:160000}),chunks=[];rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
   let cancelled=false;const fin=new Promise(r=>{exporting={bar:$('#xbar'),done:r}});$('#xcancel').onclick=()=>{cancelled=true;pause();exporting.done()};
   T=0;await show(0);rec.start(400);await play();await fin;await new Promise(r=>{rec.onstop=r;rec.stop()});stream.getVideoTracks().forEach(t=>t.stop());exporting=null;
   if(cancelled){closeModal();return}
@@ -642,7 +645,7 @@ const view=$('#view');['dragenter','dragover'].forEach(n=>view.addEventListener(
 $$('.tabs button').forEach(b=>b.onclick=()=>{$$('.tabs button').forEach(x=>x.setAttribute('aria-selected',x===b));$$('.pane').forEach(p=>p.classList.toggle('on',p.id==='p-'+b.dataset.tab))});
 $('#send').onclick=()=>{const t=$('#msg').value;$('#msg').value='';send(t)};
 $('#msg').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('#send').click()}};
-$('#quick').onclick=async e=>{const b=e.target.closest('[data-say]');if(!b||busy)return;if(!b.dataset.op)return send(b.dataset.say);busy=true;say('me',b.dataset.say);const w=say('ai','Working on it…');const l=await runOps([{op:b.dataset.op}]);w.remove();say('ai',l.length?'Done. Press play to watch it.':'Nothing changed.',l);busy=false};
+$('#quick').onclick=async e=>{const b=e.target.closest('[data-say]');if(!b||busy)return;if(!b.dataset.op)return send(b.dataset.say);busy=true;say('me',b.dataset.say);const w=say('ai','Working on it…');const l=await runOps([{op:b.dataset.op}]);w.remove();say('ai',l.length?(l.some(x=>/anyway”/.test(x))?'Heads up, I haven\'t cut anything yet.':'Done. Press play to watch it.'):'Nothing changed.',l);busy=false};
 $('#fmt').onclick=e=>{const b=e.target.closest('.chip');if(b)quick({op:'aspect',value:b.dataset.v})};
 $('#fit').onclick=e=>{const b=e.target.closest('.chip');if(b)quick({op:'fit',value:b.dataset.v})};
 $('#grade').onclick=e=>{const b=e.target.closest('.chip');if(b)quick({op:'grade',value:b.dataset.v})};
@@ -650,7 +653,7 @@ $('#cstyle').onclick=e=>{const b=e.target.closest('.chip');if(b)runOps([{op:'cap
 $('#cpos').onchange=e=>runOps([{op:'capPos',value:e.target.value}]);
 $('#focus').onchange=e=>runOps([{op:'focus',value:e.target.value/100}]);
 $('#speed').onchange=e=>quick({op:'speed',value:+e.target.value});
-$('#cut').onclick=()=>quick({op:'cutSilence',strength:$('#sstr').value});
+$('#cut').onclick=()=>quick({op:'cutSilence',strength:$('#sstr').value,force:true});
 $('#restore').onclick=()=>quick({op:'restore'});
 $('#smart').onclick=async e=>{e.target.disabled=true;e.target.textContent='Looking…';await quick({op:'smartCrop'});e.target.disabled=false;e.target.textContent='Smart crop'};
 $('#tadd').onclick=()=>{const tot=total(),w=$('#twhen').value,text=$('#tcus').value.trim()||$('#tpre').value;
